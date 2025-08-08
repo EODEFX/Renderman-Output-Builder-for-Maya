@@ -1,0 +1,525 @@
+
+//Need Renderman to create some intial settings by opening and closing the rman control window
+//execRmanMenuItem("RenderManControls");
+//deleteUI renderManControlsWindow;
+
+global string $lpeKey[] = {"directDiffuse","directDiffuseUnoccluded","indirectDiffuse","indirectDiffuseUnoccluded","subsurface","directSpecular","directSpecularUnoccluded","indirectSpecular","indirectSpecularUnoccluded","transmissive","directDiffuseLobe","indirectDiffuseLobe","subsurfaceLobe","directSpecularPrimaryLobe","indirectSpecularPrimaryLobe","directSpecularRoughLobe","indirectSpecularRoughLobe","directSpecularClearcoatLobe","indirectSpecularClearcoatLobe","directSpecularIridescenceLobe","indirectSpecularIridescenceLobe","directSpecularFuzzLobe","indirectSpecularFuzzLobe","transmissiveSingleScatterLobe","directSpecularGlassLobe","indirectSpecularGlassLobe","transmissiveGlassLobe","emissive","albedo","beauty","shadow"};
+global string $lpeVal[] = {"C<RD>[<L.>O]","unoccluded;C<RD>[<L.>O]","C<RD>[DS]+[<L.>O]","unoccluded;C<RD>[DS]+[<L.>O]","C<TD>[DS]*[<L.>O]","C<RS>[<L.>O]","unoccluded;C<RS>[<L.>O]","C<RS>[DS]+[<L.>O]","unoccluded;C<RS>[DS]+[<L.>O]","C<TS>[DS]*[<L.>O]","CD2[<L.>O]","CD2[DS]+[<L.>O]","CD3[DS]*[<L.>O]","CS2[<L.>O]","CS2[DS]+[<L.>O]","CS3[<L.>O]","CS3[DS]+[<L.>O]","CS4[<L.>O]","CS4[DS]+[<L.>O]","CS5[<L.>O]","CS5[DS]+[<L.>O]","CS6[<L.>O]","CS6[DS]+[<L.>O]","CS7[DS]*[<L.>O]","C<RS8>[<L.>O]","C<RS8>[DS]+[<L.>O]","C<TS8>[DS]*[<L.>O]","C[<L.>O]","nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C<.S'passthru'>*((U2L)|O)","C[DS]*[<L.>O]","shadows;C[DS][<L.>O]"};
+
+global string $lpeNames[31] = {"directDiffuse","directDiffuseUnoccluded","directDiffuseLobe",
+ "indirectDiffuse","indirectDiffuseUnoccluded","indirectDiffuseLobe",
+ "directSpecular","directSpecularUnoccluded","directSpecularPrimaryLobe",
+ "indirectSpecular","indirectSpecularUnoccluded","indirectSpecularPrimaryLobe",
+ "directSpecularRoughLobe","indirectSpecularRoughLobe",
+ "directSpecularClearcoatLobe","indirectSpecularClearcoatLobe",
+ "directSpecularIridescenceLobe","indirectSpecularIridescenceLobe",
+ "directSpecularFuzzLobe","indirectSpecularFuzzLobe",
+ "subsurface","subsurfaceLobe",
+ "transmissive","transmissiveSingleScatterLobe",
+ "directSpecularGlassLobe","indirectSpecularGlassLobe",
+ "transmissiveGlassLobe","emissive","albedo","beauty","shadow"};
+
+global proc string getCamel(string $name){
+    string $nameList[];
+    tokenize $name $nameList;
+    $nameList[0] = `tolower $nameList[0]`;
+    return `stringArrayToString $nameList ""`;
+}
+
+global proc string getObj(string $name){
+    string $nameList[];
+    tokenize $name "|" $nameList;
+    $name = $nameList[(size($nameList)-1)];
+    return $name;
+}
+
+global proc addTreeItem(string $name, string $parent, string $master){
+    string $nameCamel;
+    $nameCamel = `getCamel($name)`;
+    $parent = `getCamel($parent)`;
+    treeView -e -addItem $nameCamel $parent $master;
+    treeView -e -dl $nameCamel $name $master;
+}
+
+global proc buttonSelectTree(string $names[],string $obj){
+    string $i;
+    for($i in $names){
+        treeView -e -si $i true $obj;
+    }
+}
+
+global proc buttonSelectList(string $obj){
+    string $i;
+    $names = `textScrollList -q -ai $obj`;
+    for($i in $names){
+        textScrollList -e -si $i $obj;
+    }
+}
+
+global proc buttonExpand(string $names[],string $obj){
+    for($x=0;$x<31;++$x){
+        if(`treeView -q -iie $names[$x] $obj` == false){
+            treeView -e -ei $names[$x] true $obj;
+        }
+    }
+}
+
+global proc buttonCollapse(string $names[],string $obj){
+    for($x=0;$x<31;++$x){
+        if(`treeView -q -iie $names[$x] $obj` == true){
+            treeView -e -ei $names[$x] false $obj;
+        }
+    }
+}
+
+global proc findLG(string $obj){
+    textScrollList -e -ra $obj;
+    string $shapes[] = `ls -s`;
+    string $i;
+    for($i in $shapes){
+        if(`attributeExists "lightGroup" $i`){
+            if(`getAttr ($i+".lightGroup")` != "" &&
+                stringArrayContains(`getAttr ($i+".lightGroup")`, `textScrollList -q -ai $obj`) == false){
+                textScrollList -e -a `getAttr ($i+".lightGroup")` $obj;
+            }
+        }
+    }
+}
+
+global proc findLPEgrp(string $obj){
+    textScrollList -e -ra $obj;
+    string $shapes[] = `ls -s`;
+    string $i,$i2,$att;
+    string $atts[];
+    for($i in $shapes){
+        if(`attributeExists "rman__riattr__identifier_lpegroup" $i`){
+            $att = `getAttr ($i+".rman__riattr__identifier_lpegroup")`;
+            if(size(stringToStringArray($att,",")) > 1){
+                $atts = stringToStringArray($att,",");
+                for($i2 in $atts){
+                    if(stringArrayContains($i2, `textScrollList -q -ai $obj`) == false){
+                        textScrollList -e -a $i2 $obj;
+                    }                    
+                }
+            } else {
+                if($att != "" && stringArrayContains($att, `textScrollList -q -ai $obj`) == false){
+                    textScrollList -e -a $att $obj;
+                }
+            }
+        }
+    }
+}
+
+global proc addChannels(string $lpeNames[]){
+    string $selPasses[] = `treeView -q -si lgPassControl`;
+    string $selLG[] = `textScrollList -q -si lgLightList`;
+    string $selLPEG[] = `textScrollList -q -si lpeGroupList`;
+    //string $selLPE[];
+    //string $selData[];
+    string $i,$i2,$i3;
+    string $O = `checkBox -q -v chkEmissiveLG`? "o": "";
+    string $tag;
+    for ($i in $selLPEG){
+        for ($i2 in $selLG){
+            for ($i3 in $selPasses){
+                $tag = "_ple" + $O;
+                textScrollList -e -a ($i + "_" + $i2 + "_" + $i3 + $tag) fullPassPreview;
+            }
+        }
+    }
+    if(size($selLPEG) == 0){
+        for ($i in $selLG){
+            for ($i2 in $selPasses){
+                $tag = "_pl" + $O;
+                textScrollList -e -a ($i + "_" + $i2 + $tag) fullPassPreview;
+            }
+        }
+    }
+    if(size($selLG) == 0){
+        for ($i in $selLPEG){
+            for ($i2 in $selPasses){
+                $tag = "_pe" + $O;
+                textScrollList -e -a ($i + "_" + $i2 + $tag) fullPassPreview;
+            }
+        }
+    }
+    if(size($selLPEG) == 0 && size($selLG) == 0 + $tag){
+        for ($i in $selPasses){
+            $tag = "_p" + $O;
+            textScrollList -e -a ($i + $tag) fullPassPreview;
+        }
+    }
+    
+    //add selected data channels
+    string $dataChan[] = `textScrollList -q -si aovStandard`;
+    $dataChan = stringArrayCatenate($dataChan, `textScrollList -q -si aovIntegrators`);
+    $dataChan = stringArrayCatenate($dataChan, `textScrollList -q -si aovMatte`);
+    for($i in $dataChan){
+        textScrollList -e -a $i fullPassPreview;
+    }
+    
+    //removing duplicate channels
+    string $allChan[] = `textScrollList -q -ai fullPassPreview`;
+    $allChan = `stringArrayRemoveDuplicates $allChan`;
+    textScrollList -e -ra fullPassPreview;
+    for($i in $allChan){
+        textScrollList -e -a $i fullPassPreview;
+    }
+}
+
+global proc remChannels(string $list){
+    string $remItems[] = `textScrollList -q -si $list`;
+    string $i;
+    for ($i in $remItems){
+        textScrollList -e -ri $i $list;
+    }
+}
+
+global proc string insertLG(string $mainStr,string $insertStr){
+    print("\nInserting Light Group " + $insertStr);
+    return (substring($mainStr, 1, (size($mainStr)-3)) + "'" + $insertStr + "'" + substring($mainStr,(size($mainStr)-2),size($mainStr)));
+}
+
+global proc string insertEG(string $mainStr,string $insertStr){
+    print("\nInserting LPE Group " + $insertStr);
+    return $mainStr;
+}
+
+global proc string removeO(string $mainStr){
+    return (substring($mainStr, 1, (size($mainStr) - 2)) + "]");
+}
+
+global proc buildOutput(string $lpeKey[], string $lpeVal[]){    
+    string $dataCheck[] = {"color Ci","color Oi","float a","normal Nn","normal Ngn","normal Non","point P","point Po","float PRadius","vector Tn","vector Vn","float VLen","float cpuTime","float curvature","float du","float dv","float dw","vector dPdu","vector dPdv","vector dPdw","vector dPdtime","float id","float incidentRayRadius","float incidentRaySpread","vector motionFore","vector motionBack","float mpSize","float outsideIOR","float sampleCount","float time","float u","float v","float w","float z","color __Pworld","color __Nworld","color __depth","color __st","color __Pref","color __Nref","color __WPref","color __WNref","color MatteID0","color MatteID1","color MatteID2","color MatteID3","color MatteID4","color MatteID5","color MatteID6","color MatteID7"};    
+    string $curChannels[] = `textScrollList -q -ai fullPassPreview`;
+    string $curChan[];
+    string $i;
+    int $x;
+    string $outputNames[];
+    string $outputLpes[];
+    string $output;
+    print "\nBuilding Outputs\n";
+    for($i in $curChannels){
+        int $outInd = size($outputNames);
+        if(stringArrayFind($i, 0, $dataCheck) == -1){
+            tokenize $i "_" $curChan;
+            string $check = $curChan[size($curChan)-1];
+            string $emi = substring($check,size($check),size($check));
+            string $pass = $curChan[size($curChan)-2];
+            print("\nPass = " + $pass);
+            int $lpeInd = stringArrayFind($pass,0,$lpeKey);
+            if ($pass != "albedo"){
+                if (($check == "pleo")||($check == "ple")){
+                    $outputNames[$outInd] = $pass + "_" + $curChan[1] + "_" + $curChan[0];
+                    $outputLpes[$outInd] = $lpeVal[$lpeInd];
+                    $outputLpes[$outInd] = insertLG($outputLpes[$outInd],$curChan[1]);
+                    $outputLpes[$outInd] = insertEG($outputLpes[$outInd],$curChan[0]);
+                    if ($emi == "o"){
+                        $outputNames[$outInd] = $outputNames[$outInd] + "_o";
+                    } else {
+                        $outputLpes[$outInd] = removeO($outputLpes[$outInd]);
+                        print "";
+                    }
+                }
+                if (($check == "plo")||($check == "pl")){
+                    $outputNames[$outInd] = $pass + "_" + $curChan[0];
+                    print("\n" + $outInd + " " + $lpeInd);
+                    $outputLpes[$outInd] = $lpeVal[$lpeInd];
+                    $outputLpes[$outInd] = insertLG($outputLpes[$outInd],$curChan[0]);
+                    if ($emi == "o"){
+                        $outputNames[$outInd] = $outputNames[$outInd] + "_o";
+                    } else {
+                        $outputLpes[$outInd] = removeO($outputLpes[$outInd]);
+                        print "";
+                    }
+                }
+                if (($check == "peo")||($check == "pe")){
+                    $outputNames[$outInd] = $pass + "_" + $curChan[0];
+                    $outputLpes[$outInd] = $lpeVal[$lpeInd];
+                    $outputLpes[$outInd] = insertEG($outputLpes[$outInd],$curChan[0]);
+                    if ($emi == "o"){
+                        $outputNames[$outInd] = $outputNames[$outInd] + "_o";
+                    } else {
+                        $outputLpes[$outInd] = removeO($outputLpes[$outInd]);
+                        print "";
+                    }
+                }
+                if (($check == "po")||($check == "p")){
+                    $outputNames[$outInd] = $pass;
+                    $outputLpes[$outInd] = $lpeVal[$lpeInd];
+                    if ($emi == "o"){
+                        $outputNames[$outInd] = $outputNames[$outInd] + "_o";
+                    } else {
+                        $outputLpes[$outInd] = removeO($outputLpes[$outInd]);
+                        print "";
+                    }
+                }
+            } else {
+                $outputNames[$outInd] = $pass;
+                $outputLpes[$outInd] = $lpeVal[$lpeInd];
+            }
+        } else {
+            $outputNames[$outInd] = $i;
+            $outputLpes[$outInd] = "_";
+        }
+        print("\nAdded " + $outputNames[$outInd] + " " + $outputLpes[$outInd]);
+    }
+    
+//Add removal of referenced channels
+    string $rmanChannels[] = `ls "rmanFinalChannel*"`;
+    string $rmanChanNames[];
+    for($i in $rmanChannels){
+        string $name = `getAttr -as ($i + ".rman__riopt__DisplayChannel_name")`;
+        if(stringArrayFind($name, 0, $dataCheck) == -1){
+            $rmanChanNames[size($rmanChanNames)] = substring($name, 7, size($name));
+        } else {
+            $rmanChanNames[size($rmanChanNames)] = $name;
+        }
+    }    
+    for($i in $outputNames){
+        int $loc = stringArrayFind($i, 0, $outputNames);
+        if(stringArrayFind($i, 0, $rmanChanNames) != -1){
+            $outputNames[$loc] = "";
+            $outputLpes[$loc] = "";
+            $i = "";
+        }
+        if($i != ""&&(stringArrayFind($i, 0, $dataCheck) == -1)){
+            $output = ($output + "color " + $i + ",");
+        }
+        if(stringArrayFind($i, 0, $dataCheck) != -1){
+            $output = ($output + $i + ",");
+        }
+    }
+    
+    $outputNames = stringArrayRemove({""}, $outputNames);
+    $outputLpes = stringArrayRemove({""}, $outputLpes);
+    
+    if($output != ""){
+        $output = substring($output, 1, (size($output) - 1));
+        int $c = size(`ls "::rmanFinalChannel*"`);
+        $output = `rmanAddOutput rmanFinalGlobals $output`;
+        rmanSetAttr($output, "rman__torattr___dspyID", `textField -q -tx outputName`);
+        setAttr ($output + ".rman__riopt__Display_asrgba") (`checkBox -q -v exrCheck`);
+        
+        for($x = 0;$x < size($outputLpes);$x++){
+            if($outputLpes[$x] != ""&&stringArrayFind($outputNames[$x], 0, $dataCheck) == -1){
+                rmanAddAttr ("rmanFinalChannel" + ($x + $c)) rman__riopt__DisplayChannel_source ("color lpe:" + $outputLpes[$x]) ;
+            }
+        }
+    }
+}
+
+global proc createRmanPassesWorkspace(){
+    scrollLayout;
+    paneLayout -configuration "horizontal2";    
+    tabLayout -w 440 passTabs;
+        rowColumnLayout -nc 2 -cw 1 220 -cw 2 220 -w 440 lgTab;
+            text -l "Passes" -ann "lgPassControl";
+            text -l "Light Groups" -ann "lgLightList";
+            
+            treeView -allowDragAndDrop false lgPassControl;
+            
+            addTreeItem "Direct Diffuse" "" lgPassControl;
+            addTreeItem "Direct Diffuse Unoccluded" "Direct Diffuse" lgPassControl;
+            addTreeItem "Direct Diffuse Lobe" "Direct Diffuse" lgPassControl;
+            
+            addTreeItem "Indirect Diffuse" "" lgPassControl;
+            addTreeItem "Indirect Diffuse Unoccluded" "Indirect Diffuse" lgPassControl;
+            addTreeItem "Indirect Diffuse Lobe" "Indirect Diffuse" lgPassControl;
+            
+            addTreeItem "Direct Specular" "" lgPassControl;
+            addTreeItem "Direct Specular Unoccluded" "Direct Specular" lgPassControl;
+            addTreeItem "Direct Specular Primary Lobe" "Direct Specular" lgPassControl;
+            addTreeItem "Direct Specular Rough Lobe" "Direct Specular" lgPassControl;
+            addTreeItem "Direct Specular Clearcoat Lobe" "Direct Specular" lgPassControl;
+            addTreeItem "Direct Specular Iridescence Lobe" "Direct Specular" lgPassControl;
+            addTreeItem "Direct Specular Fuzz Lobe" "Direct Specular" lgPassControl;
+            
+            addTreeItem "Indirect Specular" "" lgPassControl;
+            addTreeItem "Indirect Specular Unoccluded" "Indirect Specular" lgPassControl;
+            addTreeItem "Indirect Specular Primary Lobe" "Indirect Specular" lgPassControl;
+            addTreeItem "Indirect Specular Rough Lobe" "Indirect Specular" lgPassControl;
+            addTreeItem "Indirect Specular Clearcoat Lobe" "Indirect Specular" lgPassControl;
+            addTreeItem "Indirect Specular Iridescence Lobe" "Indirect Specular" lgPassControl;
+            addTreeItem "Indirect Specular Fuzz Lobe" "Indirect Specular" lgPassControl;
+            
+            addTreeItem "Subsurface" "" lgPassControl;
+            addTreeItem "Subsurface Lobe" "subsurface" lgPassControl;
+            
+            addTreeItem "Transmissive" "" lgPassControl;
+            addTreeItem "Transmissive Single Scatter Lobe" "Transmissive" lgPassControl;
+            addTreeItem "Direct Specular Glass Lobe" "Transmissive" lgPassControl;
+            addTreeItem "Indirect Specular Glass Lobe" "Transmissive" lgPassControl;
+            addTreeItem "Transmissive Glass Lobe" "Transmissive" lgPassControl;
+            
+            addTreeItem "Emissive" "" lgPassControl;
+            addTreeItem "Albedo" "" lgPassControl;
+            addTreeItem "Beauty" "" lgPassControl;
+            addTreeItem "Shadow" "" lgPassControl;
+            
+            textScrollList -numberOfRows 15 -ams true lgLightList;
+            
+            rowLayout -nc 4 -w 220;
+                button -l "Exp\\/" -c ("buttonExpand($lpeNames,\"lgPassControl\")") -w 50;
+                button -l "Col>" -c ("buttonCollapse($lpeNames,\"lgPassControl\")") -w 50;
+                button -l "Sel+" -c ("buttonSelectTree($lpeNames,\"lgPassControl\")") -w 50;
+                button -l "Sel-" -c ("treeView -e -cs lgPassControl") -w 50;
+            setParent ..;
+            
+            rowLayout -nc 4;
+                button -l "Find" -c ("findLG(\"lgLightList\")") -w 50;
+                text -l "" -w 50;
+                button -l "Sel+" -c ("buttonSelectList(\"lgLightList\")") -w 50;
+                button -l "Sel-" -c ("textScrollList -e -da lgLightList") -w 50;
+            setParent ..;
+            
+            separator -style "double";
+            separator -style "double";
+            
+            text -l "LPE Groups" -ann "lpeGroupList";
+            text -l "";
+            
+            textScrollList -numberOfRows 8 -ams true lpeGroupList;
+            
+            checkBox -l "Emissive Materials" -w 100 chkEmissiveLG;
+            
+            rowLayout -nc 4;
+                button -l "Find" -c ("findLPEgrp(\"lpeGroupList\")") -w 50;
+                text -l "" -w 50;
+                button -l "Sel+" -c ("buttonSelectList(\"lpeGroupList\")") -w 50;
+                button -l "Sel-" -c ("textScrollList -e -da lpeGroupList") -w 50;
+            setParent ..;
+            
+        setParent ..;
+        
+        rowColumnLayout -nc 2 -cw 1 220 -cw 2 220 -w 440 dataTab;
+            
+            int $dataH = 13;
+            text -l "Standard";
+            text -l "Integrators";
+            textScrollList -nr $dataH -ams true -w 220 aovStandard;
+                textScrollList -e -a "color Ci" aovStandard;
+                textScrollList -e -a "color Oi" aovStandard;
+                textScrollList -e -a "float a" aovStandard;
+                textScrollList -e -a "normal Nn" aovStandard;
+                textScrollList -e -a "normal Ngn" aovStandard;
+                textScrollList -e -a "normal Non" aovStandard;
+                textScrollList -e -a "point P" aovStandard;
+                textScrollList -e -a "point Po" aovStandard;
+                textScrollList -e -a "float PRadius" aovStandard;
+                textScrollList -e -a "vector Tn" aovStandard;
+                textScrollList -e -a "vector Vn" aovStandard;
+                textScrollList -e -a "float VLen" aovStandard;
+                textScrollList -e -a "float cpuTime" aovStandard;
+                textScrollList -e -a "float curvature" aovStandard;
+                textScrollList -e -a "float du" aovStandard;
+                textScrollList -e -a "float dv" aovStandard;
+                textScrollList -e -a "float dw" aovStandard;
+                textScrollList -e -a "vector dPdu" aovStandard;
+                textScrollList -e -a "vector dPdv" aovStandard;
+                textScrollList -e -a "vector dPdw" aovStandard;
+                textScrollList -e -a "vector dPdtime" aovStandard;
+                textScrollList -e -a "float id" aovStandard;
+                textScrollList -e -a "float incidentRayRadius" aovStandard;
+                textScrollList -e -a "float incidentRaySpread" aovStandard;
+                textScrollList -e -a "vector motionFore" aovStandard;
+                textScrollList -e -a "vector motionBack" aovStandard;
+                textScrollList -e -a "float mpSize" aovStandard;
+                textScrollList -e -a "float outsideIOR" aovStandard;
+                textScrollList -e -a "float sampleCount" aovStandard;
+                textScrollList -e -a "float time" aovStandard;
+                textScrollList -e -a "float u" aovStandard;
+                textScrollList -e -a "float v" aovStandard;
+                textScrollList -e -a "float w" aovStandard;
+                textScrollList -e -a "float z" aovStandard;
+            
+            textScrollList -nr $dataH -ams true -w 220 aovIntegrators;
+                textScrollList -e -a "color __Pworld" aovIntegrators;
+                textScrollList -e -a "color __Nworld" aovIntegrators;
+                textScrollList -e -a "color __depth" aovIntegrators;
+                textScrollList -e -a "color __st" aovIntegrators;
+                textScrollList -e -a "color __Pref" aovIntegrators;
+                textScrollList -e -a "color __Nref" aovIntegrators;
+                textScrollList -e -a "color __WPref" aovIntegrators;
+                textScrollList -e -a "color __WNref" aovIntegrators;
+            
+            rowLayout -nc 4;            
+                button -l "Sel+" -c ("buttonSelectList(\"aovStandard\")") -w 50;
+                button -l "Sel-" -c ("textScrollList -e -da aovStandard") -w 50;
+            setParent ..;
+            
+            rowLayout -nc 4;            
+                button -l "Sel+" -c ("buttonSelectList(\"aovIntegrators\")") -w 50;
+                button -l "Sel-" -c ("textScrollList -e -da aovIntegrators") -w 50;
+            setParent ..;
+            
+            text -l "Matte"; text -l "";
+            textScrollList -nr $dataH -ams true -w 220 aovMatte;
+                textScrollList -e -a "color MatteID0" aovMatte;
+                textScrollList -e -a "color MatteID1" aovMatte;
+                textScrollList -e -a "color MatteID2" aovMatte;
+                textScrollList -e -a "color MatteID3" aovMatte;
+                textScrollList -e -a "color MatteID4" aovMatte;
+                textScrollList -e -a "color MatteID5" aovMatte;
+                textScrollList -e -a "color MatteID6" aovMatte;
+                textScrollList -e -a "color MatteID7" aovMatte;
+            
+            text -l "";
+            
+            rowLayout -nc 4;            
+                button -l "Sel+" -c ("buttonSelectList(\"aovMatte\")") -w 50;
+                button -l "Sel-" -c ("textScrollList -e -da aovMatte") -w 50;
+            setParent ..;
+        
+        setParent ..;
+        
+    tabLayout -e -tabLabel lgTab "Light Groups" passTabs;    
+    tabLayout -e -tabLabel dataTab "Data" passTabs;
+    
+    setParent ..;
+
+    rowColumnLayout -nc 2 -w 440;
+        
+        text -l "Channels" -ann "fullPassPreview"; text -l "Output Options";
+        
+        rowLayout -nc 5;
+            button -l "Chan+" -c "addChannels($lpeNames)" -ann "Adds all the currently selected channels from the lists above." -w 47;
+            button -l "Chan-" -c "remChannels(\"fullPassPreview\")" -w 47;
+            text -l "" -w 10;
+            button -l "Sel+" -c ("buttonSelectList(\"fullPassPreview\")") -w 47;
+            button -l "Sel-" -c ("textScrollList -e -da fullPassPreview") -w 47;
+        setParent ..;
+        
+        columnLayout -w 220 -cat "left" 1 outputOptions;
+            rowLayout -nc 2 -columnAlign 1 "right" -w 220;
+                text -l "Output Name";
+                textField -w 120 outputName;
+            setParent ..;
+            checkBox -l "OpenEXR as RGBA" exrCheck;
+        setParent ..;
+        
+        textScrollList -numberOfRows 13 -ams true -w 220 fullPassPreview;
+        
+        text -l "";
+        rowLayout -nc 3;
+            button -l "Build Output" -c "buildOutput($lpeKey,$lpeVal)";
+            text -l "" -w 50;
+            button -l "Close Builder" -c "deleteUI rmanPassesWorkspace";
+        setParent ..;
+}
+
+global proc rmanOutputBuilder(){
+	
+	if(catchQuiet(deleteUI("rmanPassesWorkspace"))){
+		print "Trying to delete workspace";
+	} else {
+		deleteUI rmanPassesWorkspace;
+//		delete rmanPassesWorkspace;
+	}
+	
+	rmanCreateGlobals;
+	
+	workspaceControl -retain false -floating false -uiScript "createRmanPassesWorkspace();" rmanPassesWorkspace;
+	workspaceControl -e -ttc (getUIComponentDockControl("Channel Box / Layer Editor", false)) 3 -label "Rman Output Builder" -cc "deleteUI rmanPassesWorkspace" -rs rmanPassesWorkspace;
+	
+}

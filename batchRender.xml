@@ -1,0 +1,10 @@
+<data>
+	<proj>F:\02_PreProduction_Production_Maya</proj>
+	<renders>renders\shot97</renders>
+	<scenes>scenes\05_rendering</scenes>
+	<scene>shot97_city.ma</scene>
+	<start>600</start>
+	<end>600</end>
+	<layers />
+	<maya>D:\Creation\Autodesk\Maya2017\bin</maya>
+</data>
