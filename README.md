@@ -3,3 +3,4 @@
 <p>I also plan on rewriting this script using python and the ability to edit existing channels/outputs without having to open the Advanced Renderman Controls.
 <p>The "Emissive Materials" checkbox allows you to build outputs that don't contain the influence of materials that utilize the Glow attribute. If you are using additive compositing with multiple Light Groups this will prevent glowing materials from unwanted multiplication. You can then create a light with 0.0 intensity, give it a unique Light Group, turn back on "Emissive Materials", and you now have a Light Group that is only the glowing materials in a shot.
 
+<img src="images/rmanOutputBuilder.png"><img src="images/rmanOutputBuilder_data.png">
